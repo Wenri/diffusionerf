@@ -8,7 +8,7 @@ import torch
 import lpips
 import skimage
 
-from nerf.learned_regularisation.diffusion.denoising_diffusion_pytorch import normalize_to_neg_one_to_one
+from .learned_regularisation.diffusion.denoising_diffusion_pytorch import normalize_to_neg_one_to_one
 
 loss_fn_alex = lpips.LPIPS(net='alex')  # best forward scores
 loss_fn_vgg = lpips.LPIPS(net='vgg')  # closer to "traditional" perceptual loss, when used for optimization

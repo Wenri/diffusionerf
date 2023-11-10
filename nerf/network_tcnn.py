@@ -2,7 +2,7 @@ import numpy as np
 import tinycudann as tcnn
 import torch
 
-from activation import trunc_exp
+from ..activation import trunc_exp
 from .renderer import NeRFRenderer
 
 

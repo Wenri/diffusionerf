@@ -1,22 +1,20 @@
 import itertools
-from pathlib import Path
-from nerf.test import run_tests
-
-import torch
+from functools import partial
 
 from torch.utils.data import DataLoader
 
-from nerf.learned_regularisation.patch_pose_generator import PatchPoseGenerator, FrustumChecker
-from nerf.learned_regularisation.patch_regulariser import load_patch_diffusion_model, \
+from .nerf.learned_regularisation.intrinsics import Intrinsics
+from .nerf.learned_regularisation.patch_pose_generator import PatchPoseGenerator, FrustumChecker
+from .nerf.learned_regularisation.patch_regulariser import load_patch_diffusion_model, \
     PatchRegulariser, LLFF_DEFAULT_PSEUDO_INTRINSICS
-from nerf.learned_regularisation.intrinsics import Intrinsics
-from nerf.parsing import make_parser
-from nerf.provider import MultiLoader, NeRFDataset, get_typical_deltas_between_poses
-from nerf.network_tcnn import NeRFNetwork
-from nerf.utils import *
+from .nerf.network_tcnn import NeRFNetwork
+from .nerf.parsing import make_parser
+from .nerf.provider import MultiLoader, NeRFDataset, get_typical_deltas_between_poses
+from .nerf.test import run_tests
+from .nerf.utils import *
+
 
 def run(opt):
-
     print('main.nerf running with options', opt)
 
     seed_everything(opt.seed)
@@ -53,19 +51,11 @@ def run(opt):
         if len(train_loader) < min_steps_per_epoch:
             train_loader = MultiLoader(loader=train_loader, num_repeats=int(round(200 / len(train_loader))))
 
-
         # decay to 0.1 * init_lr at last iter step
-        scheduler = lambda optimizer: optim.lr_scheduler.LambdaLR(optimizer, lambda iter: 0.1 ** min(iter / opt.iters, 1))
+        scheduler = partial(optim.lr_scheduler.LambdaLR, lr_lambda=lambda it: 0.1 ** min(it / opt.iters, 1))
 
         fx, fy, cx, cy = train_set.intrinsics
-        intrinsics = Intrinsics(
-            fx=fx,
-            fy=fy,
-            cx=cx,
-            cy=cy,
-            width=train_set.W,
-            height=train_set.H,
-        )
+        intrinsics = Intrinsics(fx=fx, fy=fy, cx=cx, cy=cy, width=train_set.W, height=train_set.H)
 
         frustum_checker = FrustumChecker(fov_x_rads=train_set.fov_x, fov_y_rads=train_set.fov_y)
         frustum_regulariser = FrustumRegulariser(

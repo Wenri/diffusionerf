@@ -24,9 +24,9 @@ import mcubes
 from rich.console import Console
 from torch_ema import ExponentialMovingAverage
 
-from nerf.helpers import custom_meshgrid
-from nerf.learned_regularisation.patch_pose_generator import FrustumRegulariser
-from nerf.metrics import calculate_all_metrics, write_metrics_to_disk
+from .helpers import custom_meshgrid
+from .learned_regularisation.patch_pose_generator import FrustumRegulariser
+from .metrics import calculate_all_metrics, write_metrics_to_disk
 
 
 @torch.jit.script

@@ -11,12 +11,12 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import grid_sample
 
-from nerf.learned_regularisation.diffusion.denoising_diffusion_pytorch import Unet, GaussianDiffusion, Trainer, \
+from .diffusion.denoising_diffusion_pytorch import Unet, GaussianDiffusion, Trainer, \
     normalize_to_neg_one_to_one, unnormalize_to_zero_to_one
-from nerf.learned_regularisation.intrinsics import Intrinsics
-from nerf.learned_regularisation.patch_pose_generator import PatchPoseGenerator, FrustumRegulariser
-from nerf.renderer import NeRFRenderer
-from nerf.utils import get_rays
+from .intrinsics import Intrinsics
+from .patch_pose_generator import PatchPoseGenerator, FrustumRegulariser
+from ..renderer import NeRFRenderer
+from ..utils import get_rays
 
 
 class DepthPreprocessor:

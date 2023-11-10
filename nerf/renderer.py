@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import raymarching
+from .. import raymarching
 from .rendering_helpers import xyzs_from_z_vals, get_foreground_z_vals, perturb_z_vals, unflatten_density_outputs, \
     upsample_z_values, get_alpha_compositing_weights, flatten_density_outputs
 from .sphere_geometry import SphericalSceneBounds, get_z_val_bounds

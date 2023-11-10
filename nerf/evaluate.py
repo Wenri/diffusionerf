@@ -1,13 +1,9 @@
 import copy
-import itertools
 from pathlib import Path
 
-from torch.utils.data import DataLoader
-
-from main_nerf import run
-from nerf.llff import get_llff_scene_paths
-from nerf.parsing import make_parser
-
+from .llff import get_llff_scene_paths
+from .parsing import make_parser
+from ..main_nerf import run
 
 # These are in 'scene coordinates', i.e. BEFORE multiplying the scale correction factors below.
 # They are set so that the relevant parts of a scene fit within the bounds of the NeRF
@@ -21,7 +17,6 @@ LLFF_DEFAULT_SCENE_BOUNDS = {
     'fortress': 10.,
     'room': 5.,
 }
-
 
 # We multiply distances in 'scene coordinates' by these to get approximately metric scales.
 # (i.e. we multiply the camera centres by these.)

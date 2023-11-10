@@ -6,8 +6,8 @@ import torch
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from nerf.circle_path import make_4x4_transform
-from nerf.learned_regularisation.intrinsics import Intrinsics
+from ..circle_path import make_4x4_transform
+from ..learned_regularisation.intrinsics import Intrinsics
 
 
 @dataclass

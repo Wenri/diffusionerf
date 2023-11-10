@@ -1,5 +1,5 @@
 from pathlib import Path
-from nerf.provider import NeRFDataset
+from .provider import NeRFDataset
 import torch
 
 
