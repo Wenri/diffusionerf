@@ -2,8 +2,8 @@ import random
 from dataclasses import dataclass
 from typing import Optional
 
-import torch
 import numpy as np
+import torch
 from scipy.spatial.transform import Rotation
 
 from ..circle_path import make_4x4_transform
@@ -61,8 +61,8 @@ class FrustumRegulariser:
         y = points_cam[..., 1]
         z = points_cam[..., 2]
 
-        pixel_i = self.intrinsics.fx * (x/(z + 1e-12)) + self.intrinsics.cx
-        pixel_j = self.intrinsics.fy * (y/(z + 1e-12)) + self.intrinsics.cy
+        pixel_i = self.intrinsics.fx * (x / (z + 1e-12)) + self.intrinsics.cx
+        pixel_j = self.intrinsics.fy * (y / (z + 1e-12)) + self.intrinsics.cy
 
         z_mask = z >= self.min_near
         pixel_i_mask = (0. <= pixel_i) & (pixel_i <= self.intrinsics.width)
@@ -70,7 +70,7 @@ class FrustumRegulariser:
         return z_mask & pixel_i_mask & pixel_j_mask
 
     def count_frustums(self, xyzs):
-        frustum_counts = torch.zeros(len(xyzs,)).to(xyzs.device)
+        frustum_counts = torch.zeros(len(xyzs, )).to(xyzs.device)
         for tf in self.transforms_w2c:
             frustum_counts += self.is_in_frustum(tf, xyzs)
         return frustum_counts
@@ -114,8 +114,10 @@ class PatchPoseGenerator:
     """
     Generates poses at which to render patches, by taking the training poses and perturbing them.
     """
+
     def __init__(self, poses, spatial_perturbation_magnitude: float, angular_perturbation_magnitude_rads: float,
-                 no_perturb_prob: float = 0., frustum_checker: Optional[FrustumChecker] = None):
+                 no_perturb_prob: float = 0., frustum_checker: Optional[FrustumChecker] = None,
+                 transform=lambda x: torch.from_numpy(x).to(dtype=torch.float)):
         """
         Initialise the pose generator with a set of poses and an amount of jitter to apply to them.
         :param poses: List of training poses, s.t. the i-th entry is the pose of the i-th training view.
@@ -130,6 +132,7 @@ class PatchPoseGenerator:
         self._angular_mag = angular_perturbation_magnitude_rads
         self._no_perturb_prob = no_perturb_prob
         self._frustum_checker = frustum_checker
+        self.transform = transform
 
     def __len__(self):
         return len(self._poses)
@@ -140,12 +143,11 @@ class PatchPoseGenerator:
                                     angular_mag=self._angular_mag)
             _, camera_centre = unpack_4x4_transform(new_pose)
             for pose in self._poses:
-                if self._frustum_checker is None or self._frustum_checker.is_in_frustum(pose_c2w=pose,
-                                                                                        point_world=camera_centre):
+                if self._frustum_checker is None or self._frustum_checker.is_in_frustum(
+                        pose_c2w=pose, point_world=camera_centre):
                     return new_pose
                 else:
                     pass
-
 
     def __getitem__(self, idx):
         # Generate a pose by perturbing the idx-th training view.
@@ -154,11 +156,11 @@ class PatchPoseGenerator:
             new_pose = self._perturb_pose(pose)
         else:
             new_pose = pose
-        return torch.tensor(new_pose, dtype=torch.float)
+        return self.transform(new_pose)
 
     def generate_random(self):
         # Generate a pose by perturbing a random training view.
-        idx = random.randint(0, len(self._poses)-1)
+        idx = random.randint(0, len(self._poses) - 1)
         return self[idx]
 
 
@@ -172,7 +174,7 @@ def perturb_pose(pose_c2w, spatial_mag: float, angular_mag: float):
     camera_orientation, camera_centre = unpack_4x4_transform(pose_c2w)
 
     # Sample perturbation to camera centre
-    cam_centre_perturbation = spatial_mag * (2. * torch.rand(3,) - 1.)
+    cam_centre_perturbation = spatial_mag * (2. * torch.rand(3, ) - 1.)
 
     # Sample perturbation to orientation
     rotation_perturbation = Rotation.random().as_rotvec() * (angular_mag / (2. * torch.pi))
