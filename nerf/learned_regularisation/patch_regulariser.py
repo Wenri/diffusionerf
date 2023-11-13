@@ -9,6 +9,7 @@ import matplotlib.cm
 import numpy as np
 import torch
 import torch.nn as nn
+from pytorch3d.transforms import matrix_to_euler_angles
 from torch.nn.functional import grid_sample
 
 from .diffusion.denoising_diffusion_pytorch import Unet, GaussianDiffusion, Trainer, \
@@ -331,9 +332,12 @@ class PatchRegulariser:
 
     def _render_random_patch(self, model: NeRFRenderer):
         pose = self._pose_generator.generate_random().to(self._device)
-        print('Pose', pose)
         intrinsics = self._get_random_patch_intrinsics(pose)
-        print('Patch intrinsics', intrinsics)
+        print('R', np.array_str(
+            matrix_to_euler_angles(pose[:3, :3], 'XYZ').cpu().numpy(), precision=2
+        ), 'T', np.array_str(
+            pose[:3, 3].cpu().numpy(), precision=2
+        ), 'f %0.1f %0.1f %0.1f %0.1f' % (intrinsics.fx, intrinsics.fy, intrinsics.cx, intrinsics.cy))
         pred_depth, pred_rgb, _, render_outputs = self._render_patch_with_intrinsics(intrinsics=intrinsics,
                                                                                      pose=pose, model=model)
         return pred_depth, pred_rgb, render_outputs
