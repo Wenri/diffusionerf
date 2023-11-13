@@ -1,12 +1,12 @@
-from dataclasses import dataclass
-import cv2
 import random
+import sys
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional, Dict, Tuple
 
+import cv2
 import matplotlib.cm
 import numpy as np
-from pathlib import Path
-
 import torch
 import torch.nn as nn
 from torch.nn.functional import grid_sample
@@ -24,6 +24,7 @@ class DepthPreprocessor:
     Preprocesses arrays of depths for feeding into the diffusion model.
     Must be used with the same arguments for both train and test.
     """
+
     def __init__(self, min_depth: float):
         self.min_depth = min_depth
 
@@ -62,7 +63,7 @@ LLFF_DEFAULT_PSEUDO_INTRINSICS = Intrinsics(
 
 
 def make_random_patch_intrinsics(patch_size: int, full_image_intrinsics: Intrinsics,
-                                 downscale_factor: int = 1) -> Intrinsics:
+                                 downscale_factor: int = 1) -> Tuple[Intrinsics, Intrinsics]:
     """
     Makes intrinsics corresponding to a random patch sampled from the original image.
     This is required when we want to sample a patch from a training image rather than render one.
@@ -81,7 +82,7 @@ def make_random_patch_intrinsics(patch_size: int, full_image_intrinsics: Intrins
     )
 
     # Allow our sampled patch to extend past the edges of the img, as long as it overlaps at least marginally with it
-    extra_margin = patch_size/2.
+    extra_margin = 0  # patch_size / 2.
 
     delta_x = intrinsics_downscaled.width - patch_size
     delta_y = intrinsics_downscaled.height - patch_size
@@ -97,7 +98,7 @@ def make_random_patch_intrinsics(patch_size: int, full_image_intrinsics: Intrins
         cy=patch_centre_y,
         width=patch_size,
         height=patch_size,
-    )
+    ), intrinsics_downscaled
 
 
 def load_patch_diffusion_model(path: Path) -> nn.Module:
@@ -182,6 +183,7 @@ class PatchRegulariser:
     """
     Main class for using the denoising diffusion patch model to regularise NeRFs.
     """
+
     def __init__(self, pose_generator: PatchPoseGenerator, patch_diffusion_model: GaussianDiffusion,
                  full_image_intrinsics: Intrinsics, device,
                  planar_depths: bool, frustum_regulariser: Optional[FrustumRegulariser], image_sample_prob: float = 0.,
@@ -234,7 +236,7 @@ class PatchRegulariser:
                 return self.get_loss_for_patch(depth_patch=depth_patch, rgb_patch=rgb_patch, time=time,
                                                update_depth_only=True, render_outputs=render_outputs)
             except AssertionError as e:
-                print('Exception:', str(e))
+                print('Exception:', str(e), file=sys.stderr)
 
     def get_loss_for_patch(self, depth_patch, rgb_patch, time, render_outputs,
                            update_depth_only: bool = False) -> PatchOutputs:
@@ -280,7 +282,8 @@ class PatchRegulariser:
             normalisation_const = 1.
             multiplier = depth_patch_detached
             assert multiplier.isfinite().all()
-            diffusion_pseudo_loss = -torch.sum(depth_weight * multiplier * grad_log_prior_prob[:, -1, :, :] * patch[:, -1, :, :])
+            diffusion_pseudo_loss = -torch.sum(
+                depth_weight * multiplier * grad_log_prior_prob[:, -1, :, :] * patch[:, -1, :, :])
         else:
             diffusion_pseudo_loss = -torch.sum(depth_weight * grad_log_prior_prob[:, -1, :, :] * patch[:, -1, :, :])
 
@@ -288,7 +291,8 @@ class PatchRegulariser:
         if self._diffusion_model.channels == 4:
             normalisation_const = 3000
             multiplier = normalisation_const / torch.linalg.norm(grad_log_prior_prob[:, :-1, :, :].detach())
-            diffusion_pseudo_loss += -torch.sum(multiplier * rgb_weight * grad_log_prior_prob[:, :-1, :, :] * patch[:, :-1, :, :])
+            diffusion_pseudo_loss += -torch.sum(
+                multiplier * rgb_weight * grad_log_prior_prob[:, :-1, :, :] * patch[:, :-1, :, :])
 
         assert grad_log_prior_prob.isfinite().all()
 
@@ -316,7 +320,8 @@ class PatchRegulariser:
         #   for visualisation purposes.
         step_scale_factor = 5e-4
         patch_outputs.images['disp_plus_step'] = patch_outputs.images['rendered_disp'] - \
-            patch_outputs.images['pred_disp_noise'].unsqueeze(-1) * step_scale_factor / sigma_lambda
+                                                 patch_outputs.images['pred_disp_noise'].unsqueeze(
+                                                     -1) * step_scale_factor / sigma_lambda
 
         if self._diffusion_model.channels == 4:
             patch_outputs.images['pred_rgb_noise'] = pred_noise_bhwc[..., :-1]
@@ -327,7 +332,7 @@ class PatchRegulariser:
     def _render_random_patch(self, model: NeRFRenderer):
         pose = self._pose_generator.generate_random().to(self._device)
         print('Pose', pose)
-        intrinsics = self._get_random_patch_intrinsics()
+        intrinsics = self._get_random_patch_intrinsics(pose)
         print('Patch intrinsics', intrinsics)
         pred_depth, pred_rgb, _, render_outputs = self._render_patch_with_intrinsics(intrinsics=intrinsics,
                                                                                      pose=pose, model=model)
@@ -351,7 +356,7 @@ class PatchRegulariser:
         return pred_depth, pred_rgb, patch_rays, outputs
 
     def _sample_patch(self, image, image_intrinsics, pose, model):
-        patch_intrinsics = self._get_random_patch_intrinsics()
+        patch_intrinsics = self._get_random_patch_intrinsics(pose)
         rendered_depth, rendered_rgb, patch_rays, render_outputs = self._render_patch_with_intrinsics(
             intrinsics=patch_intrinsics, pose=pose, model=model
         )
@@ -362,12 +367,12 @@ class PatchRegulariser:
 
         return rendered_depth, gt_rgb, render_outputs
 
-    def _get_random_patch_intrinsics(self) -> Intrinsics:
+    def _get_random_patch_intrinsics(self, pose) -> Intrinsics:
         return make_random_patch_intrinsics(
             patch_size=self._patch_size,
             full_image_intrinsics=self._full_image_intrinsics,
             downscale_factor=self._sample_downscale_factor,
-        )
+        )[0]
 
     def dump_debug_visualisations(self, output_folder: Path, output_prefix: str, patch_outputs: PatchOutputs) -> None:
         disp_keys = ('pred_disp_x0', 'rendered_disp', 'disp_plus_step')
@@ -396,7 +401,7 @@ class PatchRegulariser:
 
 def normalise_together(imgs):
     max_val = max(img.max() for img in imgs)
-    return [img/max_val for img in imgs]
+    return [img / max_val for img in imgs]
 
 
 def sample_patch_from_img(rays_d, img, img_intrinsics, patch_size: int):
@@ -434,7 +439,7 @@ def sample_patch_from_img(rays_d, img, img_intrinsics, patch_size: int):
     img_reshaped = img.moveaxis(-1, 0).unsqueeze(0)
     sampled = grid_sample(input=img_reshaped, grid=pixel_coords, align_corners=True)
 
-    sampled = sampled.reshape(1, 3, patch_size, patch_size)
+    sampled = sampled.reshape(1, c, patch_size, patch_size)
     sampled = sampled.moveaxis(1, -1)
 
     return sampled
