@@ -73,10 +73,10 @@ def make_random_patch_intrinsics(patch_size: int, full_image_intrinsics: Intrins
     :return: Intrinsics for patch as described above
     """
     intrinsics_downscaled = Intrinsics(
-        fx=full_image_intrinsics.fx // downscale_factor,
-        fy=full_image_intrinsics.fy // downscale_factor,
-        cx=full_image_intrinsics.cx // downscale_factor,
-        cy=full_image_intrinsics.cy // downscale_factor,
+        fx=full_image_intrinsics.fx / downscale_factor,
+        fy=full_image_intrinsics.fy / downscale_factor,
+        cx=full_image_intrinsics.cx / downscale_factor,
+        cy=full_image_intrinsics.cy / downscale_factor,
         width=full_image_intrinsics.width // downscale_factor,
         height=full_image_intrinsics.height // downscale_factor,
     )
